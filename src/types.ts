@@ -3,7 +3,7 @@ import * as webjsx from "webjsx";
 export type PropType = string | number | boolean | object | null | undefined;
 export type FunctionPropType = (...args: any[]) => any;
 
-export interface MagicLoopComponent {
+export interface Component {
   render(): void;
 }
 
@@ -13,14 +13,14 @@ export type PageGenerator = (
 ) => AsyncGenerator<webjsx.VNode, webjsx.VNode | void, void>;
 
 export type ComponentGenerator<TProps> = (
-  component: HTMLElement & MagicLoopComponent & TProps
+  component: HTMLElement & Component & TProps
 ) => AsyncGenerator<webjsx.VNode, webjsx.VNode | void, void>;
 
 export interface ComponentOptions<TProps> {
   shadow?: "open" | "closed";
   styles?: string;
   adoptedStyleSheets?: CSSStyleSheet[];
-  onConnected?: (component: HTMLElement & MagicLoopComponent & TProps) => void;
-  onDisconnected?: (component: HTMLElement & MagicLoopComponent & TProps) => void;
+  onConnected?: (component: HTMLElement & Component & TProps) => void;
+  onDisconnected?: (component: HTMLElement & Component & TProps) => void;
   extends?: typeof HTMLElement;
 }

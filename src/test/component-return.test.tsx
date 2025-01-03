@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { MagicLoopComponent, component } from "../index.js";
+import { Component, component } from "../index.js";
 import "./setup.js";
 import { setupJSDOM } from "./setup.js";
 import "./types.js";
@@ -41,7 +41,7 @@ describe("Magic Loop Component - Return Value", () => {
     expect(loading!.textContent).to.equal("Loading...");
 
     // Trigger next render
-    (element as unknown as MagicLoopComponent).render();
+    (element as unknown as Component).render();
     await new Promise((resolve) => setTimeout(resolve, 0));
     
     const final = element.querySelector('[data-testid="final"]');
@@ -73,12 +73,12 @@ describe("Magic Loop Component - Return Value", () => {
     expect(renderCount).to.equal(1);
 
     // Trigger second render which should return
-    (element as unknown as MagicLoopComponent).render();
+    (element as unknown as Component).render();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(renderCount).to.equal(2);
 
     // Additional renders should not increment the count
-    (element as unknown as MagicLoopComponent).render();
+    (element as unknown as Component).render();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(renderCount).to.equal(2);
   });
@@ -110,14 +110,14 @@ describe("Magic Loop Component - Return Value", () => {
     expect(step1!.textContent).to.equal("Step 1");
 
     // Move to Step 2
-    (element as unknown as MagicLoopComponent).render();
+    (element as unknown as Component).render();
     await new Promise((resolve) => setTimeout(resolve, 0));
     const step2 = element.querySelector('[data-testid="step2"]');
     expect(step2).to.not.be.null;
     expect(step2!.textContent).to.equal("Step 2");
 
     // Move to Final Step
-    (element as unknown as MagicLoopComponent).render();
+    (element as unknown as Component).render();
     await new Promise((resolve) => setTimeout(resolve, 0));
     const step3 = element.querySelector('[data-testid="step3"]');
     expect(step3).to.not.be.null;

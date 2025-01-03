@@ -4,7 +4,7 @@ import {
   ComponentOptions,
   PropType,
   FunctionPropType,
-  MagicLoopComponent as MagicLoopComponent,
+  Component as Component,
 } from "./types.js";
 
 function isSerializableProp(value: any): boolean {
@@ -55,9 +55,9 @@ export function component<
     }
   }
 
-  class MagicLoopComponentImpl
+  class MagicLoopComponent
     extends (options.extends ?? HTMLElement)
-    implements MagicLoopComponent
+    implements Component
   {
     #iterator: AsyncGenerator<webjsx.VNode, webjsx.VNode | void, void>;
     #root: ShadowRoot | HTMLElement;
@@ -92,7 +92,7 @@ export function component<
       });
 
       this.#iterator = generator(
-        this as unknown as HTMLElement & MagicLoopComponent & TProps
+        this as unknown as HTMLElement & Component & TProps
       );
     }
 
@@ -119,14 +119,14 @@ export function component<
 
     async connectedCallback() {
       options.onConnected?.(
-        this as unknown as HTMLElement & MagicLoopComponent & TProps
+        this as unknown as HTMLElement & Component & TProps
       );
       this.render();
     }
 
     async disconnectedCallback() {
       options.onDisconnected?.(
-        this as unknown as HTMLElement & MagicLoopComponent & TProps
+        this as unknown as HTMLElement & Component & TProps
       );
     }
 
@@ -192,9 +192,9 @@ export function component<
   }
 
   for (const [propName, initialValue] of Object.entries(defaultProps)) {
-    Object.defineProperty(MagicLoopComponentImpl.prototype, propName, {
+    Object.defineProperty(MagicLoopComponent.prototype, propName, {
       get() {
-        const thisItem: MagicLoopComponentImpl = this;
+        const thisItem: MagicLoopComponent = this;
         if (isSerializableProp(initialValue)) {
           const attr = thisItem.getAttribute(propName);
           return deserializeAttribute(attr, initialValue);
@@ -203,7 +203,7 @@ export function component<
         }
       },
       set(value) {
-        const thisItem: MagicLoopComponentImpl = this;
+        const thisItem: MagicLoopComponent = this;
         if (isSerializableProp(initialValue)) {
           if (value === null) {
             thisItem.removeAttribute(propName);
@@ -228,6 +228,6 @@ export function component<
 
   const elementName = name.includes("-") ? name : `${name}-component`;
   if (!customElements.get(elementName)) {
-    customElements.define(elementName, MagicLoopComponentImpl);
+    customElements.define(elementName, MagicLoopComponent);
   }
 }
