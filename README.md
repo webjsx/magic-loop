@@ -1,6 +1,6 @@
 # Magic Loop: An experimental Web Component framework
 
-Magic Loop is an experimental approach to managing front-end state using Web Components and Asynchronous Generators. Under the hood, it uses `magic-loop-router` and `webjsx`.
+Magic Loop is an experimental approach to managing front-end state using Web Components and Asynchronous Generators. Under the hood, it uses `webjsx`.
 
 1. **Web Components**: All components are Web Components, which you can re-use natively or from any framework.
 2. **Asynchronous Generators**: Rendering is done with an asynchronous generator, yielding dynamic JSX views as the state changes.
