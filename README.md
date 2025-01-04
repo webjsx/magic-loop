@@ -123,13 +123,64 @@ The lifecycle methods are:
 
 These methods help manage side effects and resources throughout the component's lifecycle.
 
+## Routing
+
+For routing needs, you can use [webjsx-router](https://github.com/webjsx/webjsx-router), a minimal type-safe pattern matching router designed specifically for WebJSX applications.
+
+### Installation
+
+```sh
+npm install webjsx-router
+```
+
+### Basic Routing Example
+
+```jsx
+import * as webjsx from "webjsx";
+import { match, goto, initRouter } from "webjsx-router";
+
+// Initialize router with routing logic
+const container = document.getElementById("app")!;
+initRouter(
+  container,
+  () =>
+    match("/users/:id", (params) => <user-details id={params.id} />) ||
+    match("/users", () => <user-list />) ||
+    <not-found />
+);
+
+// Navigation with goto
+goto("/users/123");
+
+// With query parameters
+goto("/search", { q: "test", sort: "desc" });
+```
+
+### URL Pattern Examples
+
+```jsx
+// Static routes
+match("/about", () => <about-page />);
+
+// Routes with parameters
+match("/users/:id", (params) => <user-details id={params.id} />);
+
+// Query parameters
+// URL: /search?q=test&sort=desc
+match("/search", (params, query) => (
+  <search-results query={query.q} sort={query.sort} />
+));
+```
+
+The router includes TypeScript support with automatic type inference for parameters and query strings. For more details, check out the [webjsx-router documentation](https://github.com/webjsx/webjsx-router).
+
 ## Building an HN Clone
 
 Let's build a Hacker News (HN) clone using Magic Loop. This example demonstrates how to create a full-featured web application with components, routing, data fetching, and state management.
 
 ### Story List - The Home Page
 
-The home page displays a curated list of top stories from Hacker News. When the component mounts, it fetches the IDs of top stories from the HN API, then retrieves detailed data for the top 20 stories. Each story is displayed with its title, score, author link, and comment count. The component handles loading states and provides clear feedback to users while data is being fetched.
+The home page displays a curated list of top stories from Hacker News. When the component mounts, it fetches the IDs of top stories from the HN API, then retrieves detailed data for the top stories. Each story is displayed with its title, score, author link, and comment count. The component handles loading states and provides clear feedback to users while data is being fetched.
 
 ```ts
 component("story-list", async function* (component: HTMLElement & Component) {
@@ -160,20 +211,18 @@ component("story-list", async function* (component: HTMLElement & Component) {
         </div>
       );
     } else {
-      yield (
+      return (
         <div>
           <hn-header />
           <div class="story-list">
-            {stories.slice(0, 10).map((story: Story, index: number) => (
+            {stories.slice(0, 30).map((story: Story, index: number) => (
               <div class="story-list-item">
                 <span class="rank">{index + 1}.</span>
                 <span>
                   <a
                     class="title-link"
                     href="#"
-                    onclick={() => {
-                      window.history.pushState(null, "", `/story/${story.id}`);
-                    }}
+                    onclick={() => goto(`/story/${story.id}`)}
                   >
                     {story.title}
                   </a>
@@ -191,14 +240,9 @@ component("story-list", async function* (component: HTMLElement & Component) {
                     </span>
                   )}
                 </span>
-                <div class="meta">
+                <div class="meta" style="margin-left: 2em">
                   {story.score} points by <user-link username={story.by} />{" "}
-                  <a
-                    href="#"
-                    onclick={() => {
-                      window.history.pushState(null, "", `/story/${story.id}`);
-                    }}
-                  >
+                  <a href="#" onclick={() => goto(`/story/${story.id}`)}>
                     {story.descendants || 0} comments
                   </a>
                 </div>
@@ -237,13 +281,7 @@ component(
       if (!story?.id) {
         yield (
           <div>
-            <a
-              class="back-link"
-              href="#"
-              onclick={() => {
-                window.history.pushState(null, "", "/");
-              }}
-            >
+            <a class="back-link" href="#" onclick={() => goto("/")}>
               Back
             </a>
             <div>Story not found.</div>
@@ -252,13 +290,7 @@ component(
       } else {
         return (
           <div>
-            <a
-              class="back-link"
-              href="#"
-              onclick={() => {
-                window.history.pushState(null, "", "/");
-              }}
-            >
+            <a class="back-link" href="#" onclick={() => goto("/")}>
               &larr; Back
             </a>
             <h2>
@@ -419,13 +451,7 @@ component(
       if (!userData) {
         yield (
           <div>
-            <a
-              class="back-link"
-              href="#"
-              onclick={() => {
-                window.history.pushState(null, "", "/");
-              }}
-            >
+            <a class="back-link" href="#" onclick={() => goto("/")}>
               Back
             </a>
             <div>User not found.</div>
@@ -434,13 +460,7 @@ component(
       } else {
         return (
           <div>
-            <a
-              class="back-link"
-              href="#"
-              onclick={() => {
-                window.history.pushState(null, "", "/");
-              }}
-            >
+            <a class="back-link" href="#" onclick={() => goto("/")}>
               &larr; Back
             </a>
             <h2>User: {userData.id}</h2>
@@ -461,12 +481,7 @@ component(
               <h3>Recent Submissions</h3>
               {userStories.map((story) => (
                 <div class="story-list-item">
-                  <a
-                    href="#"
-                    onclick={() => {
-                      window.history.pushState(null, "", `/story/${story.id}`);
-                    }}
-                  >
+                  <a href="#" onclick={() => goto(`/story/${story.id}`)}>
                     {story.title}
                   </a>
                   <div class="meta">
@@ -493,12 +508,7 @@ component(
   "user-link",
   async function* (component: HTMLElement & Component & { username: string }) {
     return (
-      <a
-        href="#"
-        onclick={() => {
-          window.history.pushState(null, "", `/user/${component.username}`);
-        }}
-      >
+      <a href="#" onclick={() => goto(`/user/${component.username}`)}>
         {component.username}
       </a>
     );
@@ -517,14 +527,10 @@ component("hn-header", async function* (component: HTMLElement & Component) {
     yield (
       <div class="hn-header">
         <div class="hn-header-content">
-          <a href="#" class="hn-logo" onclick={() => {
-            window.history.pushState(null, "", "/");
-          }}>
+          <a href="#" class="hn-logo" onclick={() => goto("/")}>
             Y
           </a>
-          <a href="#" class="hn-header-text" onclick={() => {
-            window.history.pushState(null, "", "/");
-          }}>
+          <a href="#" class="hn-header-text" onclick={() => goto("/")}>
             <b>Hacker News</b>
           </a>
           <a href="#" class="hn-header-link">
@@ -561,53 +567,7 @@ component("hn-header", async function* (component: HTMLElement & Component) {
 });
 ```
 
-### Application Types
-
-The application uses TypeScript interfaces to ensure type safety across components:
-
-```ts
-type Story = {
-  id: number;
-  title: string;
-  url?: string;
-  score: number;
-  by: string;
-  descendants?: number;
-  kids?: number[];
-};
-
-type CommentData = {
-  id: number;
-  by: string;
-  text: string;
-  kids?: number[];
-};
-
-type UserData = {
-  id: string;
-  created: number;
-  karma: number;
-  about?: string;
-  submitted?: number[];
-};
-```
-
-### Routing Setup
-
-Finally, we configure the routes for our application:
-
-```ts
-import { match } from "webjsx-router";
-
-export const render = () =>
-  match("/", () => <story-list />) ||
-  match("/story/:id", (params) => (
-    <story-detail storyid={parseInt(params.id, 10)} />
-  )) ||
-  match("/user/:id", (params) => <user-profile username={params.id} />) || (
-    <div>Page not found</div>
-  );
-```
+The router handles URL parameters automatically, extracting them and providing them to your components. It also manages browser history and back/forward navigation seamlessly.
 
 ## License
 

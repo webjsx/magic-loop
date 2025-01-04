@@ -1,6 +1,6 @@
 {
-  "name": "webjsx-router",
-  "version": "0.0.3",
+  "name": "magic-loop",
+  "version": "0.0.4",
   "public": true,
   "main": "./dist/index.js",
   "type": "module",
