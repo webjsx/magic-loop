@@ -4,7 +4,7 @@ Magic Loop is an experimental approach to managing front-end state using Web Com
 
 1. **Web Components**: All components are Web Components, which you can re-use natively or from any framework.
 2. **Asynchronous Generators**: Rendering is done with an asynchronous generator, yielding dynamic JSX views as the state changes.
-3. **Declarative Routing**: Define routes and associate them with components using the `magic-loop-router` API.
+3. **Declarative Routing**: Define routes and associate them with components using the `webjsx-router` API.
 
 If you want to dive right into code, here's an [HN Homepage example](https://stackblitz.com/edit/magic-loop-hn) on StackBlitz.
 
@@ -13,7 +13,7 @@ If you want to dive right into code, here's an [HN Homepage example](https://sta
 To use Magic Loop in your project:
 
 ```bash
-npm install magic-loop magic-loop-router webjsx
+npm install magic-loop webjsx-router webjsx
 ```
 
 ### TypeScript
@@ -168,7 +168,13 @@ component("story-list", async function* (component: HTMLElement & Component) {
               <div class="story-list-item">
                 <span class="rank">{index + 1}.</span>
                 <span>
-                  <a class="title-link" href="#" onclick={() => {}}>
+                  <a
+                    class="title-link"
+                    href="#"
+                    onclick={() => {
+                      window.history.pushState(null, "", `/story/${story.id}`);
+                    }}
+                  >
                     {story.title}
                   </a>
                   {story.url && (
@@ -187,7 +193,12 @@ component("story-list", async function* (component: HTMLElement & Component) {
                 </span>
                 <div class="meta">
                   {story.score} points by <user-link username={story.by} />{" "}
-                  <a href="#" onclick={() => {}}>
+                  <a
+                    href="#"
+                    onclick={() => {
+                      window.history.pushState(null, "", `/story/${story.id}`);
+                    }}
+                  >
                     {story.descendants || 0} comments
                   </a>
                 </div>
@@ -226,7 +237,13 @@ component(
       if (!story?.id) {
         yield (
           <div>
-            <a class="back-link" href="#" onclick={() => router.goto("/")}>
+            <a
+              class="back-link"
+              href="#"
+              onclick={() => {
+                window.history.pushState(null, "", "/");
+              }}
+            >
               Back
             </a>
             <div>Story not found.</div>
@@ -235,7 +252,13 @@ component(
       } else {
         return (
           <div>
-            <a class="back-link" href="#" onclick={() => router.goto("/")}>
+            <a
+              class="back-link"
+              href="#"
+              onclick={() => {
+                window.history.pushState(null, "", "/");
+              }}
+            >
               &larr; Back
             </a>
             <h2>
@@ -396,7 +419,13 @@ component(
       if (!userData) {
         yield (
           <div>
-            <a class="back-link" href="#" onclick={() => router.goto("/")}>
+            <a
+              class="back-link"
+              href="#"
+              onclick={() => {
+                window.history.pushState(null, "", "/");
+              }}
+            >
               Back
             </a>
             <div>User not found.</div>
@@ -405,7 +434,13 @@ component(
       } else {
         return (
           <div>
-            <a class="back-link" href="#" onclick={() => router.goto("/")}>
+            <a
+              class="back-link"
+              href="#"
+              onclick={() => {
+                window.history.pushState(null, "", "/");
+              }}
+            >
               &larr; Back
             </a>
             <h2>User: {userData.id}</h2>
@@ -426,7 +461,12 @@ component(
               <h3>Recent Submissions</h3>
               {userStories.map((story) => (
                 <div class="story-list-item">
-                  <a href="#" onclick={() => router.goto(`/story/${story.id}`)}>
+                  <a
+                    href="#"
+                    onclick={() => {
+                      window.history.pushState(null, "", `/story/${story.id}`);
+                    }}
+                  >
                     {story.title}
                   </a>
                   <div class="meta">
@@ -453,7 +493,12 @@ component(
   "user-link",
   async function* (component: HTMLElement & Component & { username: string }) {
     return (
-      <a href="#" onclick={() => router.goto(`/user/${component.username}`)}>
+      <a
+        href="#"
+        onclick={() => {
+          window.history.pushState(null, "", `/user/${component.username}`);
+        }}
+      >
         {component.username}
       </a>
     );
@@ -466,17 +511,20 @@ component(
 
 The header component implements the classic Hacker News navigation bar, including the Y Combinator logo and navigation links. This component provides consistent navigation across all pages of the application.
 
-````ts
+```ts
 component("hn-header", async function* (component: HTMLElement & Component) {
   while (true) {
     yield (
       <div class="hn-header">
         <div class="hn-header-content">
-          <a href="#" class="hn-logo">
+          <a href="#" class="hn-logo" onclick={() => {
+            window.history.pushState(null, "", "/");
+          }}>
             Y
           </a>
-          Here's the continuation of the README.md file: ```markdown
-          <a href="#" class="hn-header-text">
+          <a href="#" class="hn-header-text" onclick={() => {
+            window.history.pushState(null, "", "/");
+          }}>
             <b>Hacker News</b>
           </a>
           <a href="#" class="hn-header-link">
@@ -511,7 +559,7 @@ component("hn-header", async function* (component: HTMLElement & Component) {
     );
   }
 });
-````
+```
 
 ### Application Types
 
@@ -549,27 +597,17 @@ type UserData = {
 Finally, we configure the routes for our application:
 
 ```ts
-import { Router } from "magic-loop-router";
+import { match } from "webjsx-router";
 
-const router = new Router("app");
-
-router.page("/", async function* () {
-  return <story-list />;
-});
-
-router.page("/story/:id", async function* (params) {
-  const storyId = parseInt(params.id, 10);
-  return <story-detail storyid={storyId} />;
-});
-
-router.page("/user/:id", async function* (params) {
-  return <user-profile username={params.id} />;
-});
-
-router.goto("/");
+export const render = () =>
+  match("/", () => <story-list />) ||
+  match("/story/:id", (params) => (
+    <story-detail storyid={parseInt(params.id, 10)} />
+  )) ||
+  match("/user/:id", (params) => <user-profile username={params.id} />) || (
+    <div>Page not found</div>
+  );
 ```
-
-This example demonstrates how Magic Loop components work together to create a full-featured web application, handling data fetching, state management, routing, and complex UI interactions.
 
 ## License
 
