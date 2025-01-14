@@ -5,7 +5,6 @@ import { setupJSDOM } from "./setup.js";
 import "./types.js";
 
 describe("Magic Loop Component - Nested Components", () => {
-
   beforeEach(() => {
     setupJSDOM();
     const appElement = document.createElement("div");
@@ -44,33 +43,31 @@ describe("Magic Loop Component - Nested Components", () => {
           );
         }
       },
-      { initialcount: 0, componentid: 0 }
+      { initialcount: 0, componentid: 0 },
+      { shadow: "open" }
     );
 
-    component(
-      "parent-component",
-      async function* (component) {
-        let parentCount = 0;
+    component("parent-component", async function* (component) {
+      let parentCount = 0;
 
-        const incrementParent = () => {
-          parentCount++;
-          component.render();
-        };
+      const incrementParent = () => {
+        parentCount++;
+        component.render();
+      };
 
-        while (true) {
-          yield (
-            <div>
-              <span data-testid="parent-count">{parentCount}</span>
-              <button onclick={incrementParent} data-testid="parent-button">
-                +
-              </button>
-              <child-counter componentid="1" initialcount="0" />
-              <child-counter componentid="2" initialcount="5" />
-            </div>
-          );
-        }
+      while (true) {
+        yield (
+          <div>
+            <span data-testid="parent-count">{parentCount}</span>
+            <button onclick={incrementParent} data-testid="parent-button">
+              +
+            </button>
+            <child-counter componentid="1" initialcount="0" />
+            <child-counter componentid="2" initialcount="5" />
+          </div>
+        );
       }
-    );
+    });
 
     const element = document.createElement("parent-component");
     document.body.appendChild(element);
@@ -79,18 +76,28 @@ describe("Magic Loop Component - Nested Components", () => {
 
     const getParentCount = () =>
       element.querySelector('[data-testid="parent-count"]')!.textContent;
+
+    const child1 = element.querySelector(
+      'child-counter[componentid="1"]'
+    ) as HTMLElement;
+    const child2 = element.querySelector(
+      'child-counter[componentid="2"]'
+    ) as HTMLElement;
+
     const getChild1Count = () =>
-      element.querySelector('[data-testid="counter-1"]')!.textContent;
+      child1.shadowRoot!.querySelector('[data-testid="counter-1"]')!
+        .textContent;
     const getChild2Count = () =>
-      element.querySelector('[data-testid="counter-2"]')!.textContent;
+      child2.shadowRoot!.querySelector('[data-testid="counter-2"]')!
+        .textContent;
 
     const parentButton = element.querySelector(
       '[data-testid="parent-button"]'
     ) as HTMLElement;
-    const child1Button = element.querySelector(
+    const child1Button = child1.shadowRoot!.querySelector(
       '[data-testid="button-1"]'
     ) as HTMLElement;
-    const child2Button = element.querySelector(
+    const child2Button = child2.shadowRoot!.querySelector(
       '[data-testid="button-2"]'
     ) as HTMLElement;
 
@@ -133,32 +140,29 @@ describe("Magic Loop Component - Nested Components", () => {
       { name: "", value: "" }
     );
 
-    component(
-      "parent-updater",
-      async function* (component) {
-        let currentValue = 0;
+    component("parent-updater", async function* (component) {
+      let currentValue = 0;
 
-        const updateValue = () => {
-          currentValue++;
-          component.render();
-        };
+      const updateValue = () => {
+        currentValue++;
+        component.render();
+      };
 
-        while (true) {
-          yield (
-            <div>
-              <display-attrs
-                name="counter"
-                value={currentValue.toString()}
-                data-testid="display"
-              />
-              <button onclick={updateValue} data-testid="update">
-                Update
-              </button>
-            </div>
-          );
-        }
+      while (true) {
+        yield (
+          <div>
+            <display-attrs
+              name="counter"
+              value={currentValue.toString()}
+              data-testid="display"
+            />
+            <button onclick={updateValue} data-testid="update">
+              Update
+            </button>
+          </div>
+        );
       }
-    );
+    });
 
     const element = document.createElement("parent-updater");
     document.body.appendChild(element);
