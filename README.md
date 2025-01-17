@@ -567,8 +567,6 @@ component("hn-header", async function* (component: HTMLElement & Component) {
 });
 ```
 
-The router handles URL parameters automatically, extracting them and providing them to your components. It also manages browser history and back/forward navigation seamlessly.
-
 ## License
 
 MIT
