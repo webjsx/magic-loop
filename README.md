@@ -92,6 +92,61 @@ This component displays a heading using the `title` property. If no title is pro
 
 If you want to jump right into the code, you can edit the [HN example on StackBlitz](https://stackblitz.com/edit/magic-loop-hn).
 
+## Shadow DOM Support
+
+Magic Loop components can use Shadow DOM for style encapsulation. To enable Shadow DOM, use the `shadow` option in the component options (fourth parameter):
+
+```ts
+component(
+  "shadow-example",
+  async function* (component) {
+    yield <div>Content inside shadow DOM</div>;
+  },
+  {}, // default props
+  { shadow: "open" } // Creates an open shadow root
+);
+```
+
+You can choose between two Shadow DOM modes:
+
+- `"open"`: Makes the shadow root accessible via element.shadowRoot
+- `"closed"`: Creates a closed shadow root (element.shadowRoot will be null)
+
+To add styles to your Shadow DOM, use the `styles` option:
+
+```ts
+component(
+  "styled-shadow",
+  async function* (component) {
+    yield <div class="container">Styled content</div>;
+  },
+  {},
+  {
+    shadow: "open",
+    styles: ".container { color: blue; padding: 10px; }",
+  }
+);
+```
+
+You can also use Constructed StyleSheets with the `adoptedStyleSheets` option:
+
+```ts
+const sheet = new CSSStyleSheet();
+sheet.replaceSync(".container { color: red; }");
+
+component(
+  "adopted-styles-example",
+  async function* (component) {
+    yield <div class="container">Content with adopted styles</div>;
+  },
+  {},
+  {
+    shadow: "open",
+    adoptedStyleSheets: [sheet],
+  }
+);
+```
+
 ## Lifecycle Methods
 
 Components in Magic Loop support lifecycle methods through the ComponentOptions parameter:
