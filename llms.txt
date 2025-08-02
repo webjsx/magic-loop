@@ -1,0 +1,2145 @@
+# Magic Loop - Async Generator-Based Web Component Framework
+
+Magic Loop is an experimental Web Component framework that uses async generators for state management. It's built on WebJSX and provides a unique approach to building reactive UIs with minimal boilerplate.
+
+## Core Concepts
+
+1. **Async Generators**: Components use `async function*` to yield different views as state changes
+2. **Web Components**: All components are native Web Components, reusable anywhere
+3. **Reactive Rendering**: Call `component.render()` to trigger updates
+4. **Built on WebJSX**: Uses WebJSX for efficient DOM diffing under the hood
+
+## Installation
+
+```bash
+npm install magic-loop webjsx webjsx-router
+```
+
+## TypeScript Configuration
+
+tsconfig.json:
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "webjsx",
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "strict": true
+  }
+}
+```
+
+## Basic Component Syntax
+
+### Simple Static Component
+
+```tsx
+import { component } from "magic-loop";
+
+component("hello-world", async function* (component) {
+  return (
+    <div>
+      <h1>Hello, World!</h1>
+      <p>This is a Magic Loop component</p>
+    </div>
+  );
+});
+
+// Usage: <hello-world></hello-world>
+```
+
+### Dynamic Component with State
+
+```tsx
+component("click-counter", async function* (component) {
+  let count = 0;
+
+  while (true) {
+    yield (
+      <div>
+        <p>Count: {count}</p>
+        <button onclick={() => {
+          count++;
+          component.render();
+        }}>
+          Increment
+        </button>
+      </div>
+    );
+  }
+});
+```
+
+## Component Properties
+
+### Declaring Props with Defaults
+
+```tsx
+component(
+  "user-card",
+  async function* (component: HTMLElement & Component & { 
+    name: string; 
+    age: number; 
+    active: boolean 
+  }) {
+    yield (
+      <div class={`user-card ${component.active ? "active" : ""}`}>
+        <h3>{component.name}</h3>
+        <p>Age: {component.age}</p>
+      </div>
+    );
+  },
+  { 
+    name: "Anonymous", 
+    age: 0, 
+    active: false 
+  }
+);
+
+// Usage: <user-card name="John" age={30} active></user-card>
+```
+
+### Serializable vs Non-Serializable Props
+
+```tsx
+// Serializable props (string, number, boolean) become attributes
+// Non-serializable props (objects, arrays, functions) are properties only
+
+component(
+  "data-table",
+  async function* (component: HTMLElement & Component & { 
+    title: string;        // Serializable - becomes attribute
+    data: any[];         // Non-serializable - property only
+    onRowClick: (row: any) => void;  // Non-serializable - property only
+  }) {
+    yield (
+      <div>
+        <h2>{component.title}</h2>
+        <table>
+          {component.data.map(row => (
+            <tr onclick={() => component.onRowClick?.(row)}>
+              <td>{row.name}</td>
+              <td>{row.value}</td>
+            </tr>
+          ))}
+        </table>
+      </div>
+    );
+  },
+  { 
+    title: "Data Table",
+    data: [],
+    onRowClick: () => {}
+  }
+);
+
+// Usage:
+const dataTable = document.querySelector("data-table");
+dataTable.data = [{ name: "Item 1", value: 100 }];
+dataTable.onRowClick = (row) => console.log("Clicked:", row);
+```
+
+## Shadow DOM Support
+
+### Basic Shadow DOM
+
+```tsx
+component(
+  "shadow-button",
+  async function* (component) {
+    yield (
+      <button class="styled-button">
+        <slot></slot>
+      </button>
+    );
+  },
+  {},
+  { 
+    shadow: "open",
+    styles: `
+      .styled-button {
+        background: blue;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .styled-button:hover {
+        background: darkblue;
+      }
+    `
+  }
+);
+
+// Usage: <shadow-button>Click Me</shadow-button>
+```
+
+### Advanced Shadow DOM with Slots
+
+```tsx
+component(
+  "card-layout",
+  async function* (component) {
+    yield (
+      <div class="card">
+        <div class="header">
+          <slot name="header"></slot>
+        </div>
+        <div class="content">
+          <slot></slot>
+        </div>
+        <div class="footer">
+          <slot name="footer"></slot>
+        </div>
+      </div>
+    );
+  },
+  {},
+  {
+    shadow: "open",
+    styles: `
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .header {
+        background: #f0f0f0;
+        padding: 1rem;
+        font-weight: bold;
+      }
+      .content {
+        padding: 1rem;
+      }
+      .footer {
+        background: #f9f9f9;
+        padding: 1rem;
+        border-top: 1px solid #ddd;
+      }
+    `
+  }
+);
+
+// Usage:
+// <card-layout>
+//   <h2 slot="header">Card Title</h2>
+//   <p>Card content goes here</p>
+//   <button slot="footer">Action</button>
+// </card-layout>
+```
+
+### Adopted StyleSheets
+
+```tsx
+const sharedStyles = new CSSStyleSheet();
+sharedStyles.replaceSync(`
+  .button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .primary { background: blue; color: white; }
+  .secondary { background: gray; color: white; }
+`);
+
+component(
+  "styled-buttons",
+  async function* (component) {
+    yield (
+      <div>
+        <button class="button primary">Primary</button>
+        <button class="button secondary">Secondary</button>
+      </div>
+    );
+  },
+  {},
+  {
+    shadow: "open",
+    adoptedStyleSheets: [sharedStyles]
+  }
+);
+```
+
+## Lifecycle Methods
+
+```tsx
+component(
+  "lifecycle-demo",
+  async function* (component) {
+    let data = null;
+    
+    // Initial render shows loading
+    yield <div>Loading...</div>;
+    
+    // Fetch data and re-render
+    try {
+      const response = await fetch("/api/data");
+      data = await response.json();
+      
+      yield (
+        <div>
+          <h2>Data Loaded</h2>
+          <pre>{JSON.stringify(data, null, 2)}</pre>
+        </div>
+      );
+    } catch (error) {
+      yield <div>Error loading data</div>;
+    }
+  },
+  {},
+  {
+    onConnected: (component) => {
+      console.log("Component added to DOM");
+      // Start timers, add global listeners, etc.
+    },
+    onDisconnected: (component) => {
+      console.log("Component removed from DOM");
+      // Clean up timers, remove global listeners, etc.
+    }
+  }
+);
+```
+
+## State Management Patterns
+
+### Local Component State
+
+```tsx
+component("todo-list", async function* (component) {
+  const todos = [];
+  let newTodoText = "";
+
+  const addTodo = () => {
+    if (newTodoText.trim()) {
+      todos.push({
+        id: Date.now(),
+        text: newTodoText,
+        completed: false
+      });
+      newTodoText = "";
+      component.render();
+    }
+  };
+
+  const toggleTodo = (id: number) => {
+    const todo = todos.find(t => t.id === id);
+    if (todo) {
+      todo.completed = !todo.completed;
+      component.render();
+    }
+  };
+
+  const deleteTodo = (id: number) => {
+    const index = todos.findIndex(t => t.id === id);
+    if (index > -1) {
+      todos.splice(index, 1);
+      component.render();
+    }
+  };
+
+  while (true) {
+    yield (
+      <div class="todo-list">
+        <h2>Todo List</h2>
+        
+        <form onsubmit={(e) => {
+          e.preventDefault();
+          addTodo();
+        }}>
+          <input
+            type="text"
+            value={newTodoText}
+            oninput={(e) => {
+              newTodoText = e.target.value;
+              component.render();
+            }}
+            placeholder="Add a todo..."
+          />
+          <button type="submit">Add</button>
+        </form>
+
+        <ul>
+          {todos.map(todo => (
+            <li key={todo.id} class={todo.completed ? "completed" : ""}>
+              <input
+                type="checkbox"
+                checked={todo.completed}
+                onchange={() => toggleTodo(todo.id)}
+              />
+              <span>{todo.text}</span>
+              <button onclick={() => deleteTodo(todo.id)}>×</button>
+            </li>
+          ))}
+        </ul>
+
+        <p>{todos.filter(t => !t.completed).length} items left</p>
+      </div>
+    );
+  }
+});
+```
+
+### Async Data Loading
+
+```tsx
+component(
+  "user-profile",
+  async function* (component: HTMLElement & Component & { userId: number }) {
+    let user = null;
+    let loading = true;
+    let error = null;
+
+    const loadUser = async () => {
+      loading = true;
+      error = null;
+      component.render();
+
+      try {
+        const response = await fetch(`/api/users/${component.userId}`);
+        if (!response.ok) throw new Error("Failed to load user");
+        user = await response.json();
+      } catch (e) {
+        error = e.message;
+      } finally {
+        loading = false;
+        component.render();
+      }
+    };
+
+    // Load initial data
+    loadUser();
+
+    while (true) {
+      if (loading) {
+        yield <div class="loading">Loading user...</div>;
+      } else if (error) {
+        yield (
+          <div class="error">
+            <p>Error: {error}</p>
+            <button onclick={() => loadUser()}>Retry</button>
+          </div>
+        );
+      } else if (user) {
+        yield (
+          <div class="user-profile">
+            <img src={user.avatar} alt={user.name} />
+            <h2>{user.name}</h2>
+            <p>{user.bio}</p>
+            <button onclick={() => loadUser()}>Refresh</button>
+          </div>
+        );
+      }
+    }
+  },
+  { userId: 0 }
+);
+```
+
+### Real-time Updates
+
+```tsx
+component("live-notifications", async function* (component) {
+  const notifications = [];
+  let eventSource: EventSource | null = null;
+
+  const addNotification = (data: any) => {
+    notifications.unshift({
+      id: Date.now(),
+      ...data,
+      timestamp: new Date()
+    });
+    
+    // Keep only last 10 notifications
+    if (notifications.length > 10) {
+      notifications.pop();
+    }
+    
+    component.render();
+  };
+
+  // Lifecycle: Connect to event stream
+  const connect = () => {
+    eventSource = new EventSource("/api/notifications");
+    
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      addNotification(data);
+    };
+    
+    eventSource.onerror = () => {
+      console.error("EventSource error");
+      eventSource?.close();
+      eventSource = null;
+      
+      // Reconnect after 5 seconds
+      setTimeout(connect, 5000);
+    };
+  };
+
+  connect();
+
+  while (true) {
+    yield (
+      <div class="notifications">
+        <h3>Live Notifications</h3>
+        {notifications.length === 0 ? (
+          <p>No notifications yet</p>
+        ) : (
+          <ul>
+            {notifications.map(notif => (
+              <li key={notif.id}>
+                <strong>{notif.title}</strong>
+                <p>{notif.message}</p>
+                <time>{notif.timestamp.toLocaleTimeString()}</time>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+}, {}, {
+  onDisconnected: (component) => {
+    // Clean up when component is removed
+    component.eventSource?.close();
+  }
+});
+```
+
+## Form Handling
+
+### Controlled Form Inputs
+
+```tsx
+component("contact-form", async function* (component) {
+  const formData = {
+    name: "",
+    email: "",
+    subject: "",
+    message: ""
+  };
+  
+  const errors: Record<string, string> = {};
+  let submitting = false;
+  let submitted = false;
+
+  const validate = () => {
+    Object.keys(errors).forEach(key => delete errors[key]);
+    
+    if (!formData.name.trim()) {
+      errors.name = "Name is required";
+    }
+    
+    if (!formData.email.includes("@")) {
+      errors.email = "Valid email is required";
+    }
+    
+    if (!formData.message.trim()) {
+      errors.message = "Message is required";
+    }
+    
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e: Event) => {
+    e.preventDefault();
+    
+    if (!validate()) {
+      component.render();
+      return;
+    }
+    
+    submitting = true;
+    component.render();
+    
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+      
+      if (!response.ok) throw new Error("Failed to submit");
+      
+      submitted = true;
+      Object.keys(formData).forEach(key => formData[key] = "");
+    } catch (error) {
+      errors.submit = "Failed to submit form. Please try again.";
+    } finally {
+      submitting = false;
+      component.render();
+    }
+  };
+
+  const updateField = (field: string, value: string) => {
+    formData[field] = value;
+    // Clear error when user starts typing
+    if (errors[field]) {
+      delete errors[field];
+    }
+    component.render();
+  };
+
+  while (true) {
+    if (submitted) {
+      yield (
+        <div class="success">
+          <h2>Thank you!</h2>
+          <p>Your message has been sent successfully.</p>
+          <button onclick={() => {
+            submitted = false;
+            component.render();
+          }}>
+            Send another message
+          </button>
+        </div>
+      );
+    } else {
+      yield (
+        <form onsubmit={handleSubmit}>
+          <h2>Contact Us</h2>
+          
+          <div class="form-group">
+            <label>Name *</label>
+            <input
+              type="text"
+              value={formData.name}
+              oninput={(e) => updateField("name", e.target.value)}
+              disabled={submitting}
+            />
+            {errors.name && <span class="error">{errors.name}</span>}
+          </div>
+          
+          <div class="form-group">
+            <label>Email *</label>
+            <input
+              type="email"
+              value={formData.email}
+              oninput={(e) => updateField("email", e.target.value)}
+              disabled={submitting}
+            />
+            {errors.email && <span class="error">{errors.email}</span>}
+          </div>
+          
+          <div class="form-group">
+            <label>Subject</label>
+            <input
+              type="text"
+              value={formData.subject}
+              oninput={(e) => updateField("subject", e.target.value)}
+              disabled={submitting}
+            />
+          </div>
+          
+          <div class="form-group">
+            <label>Message *</label>
+            <textarea
+              value={formData.message}
+              oninput={(e) => updateField("message", e.target.value)}
+              rows={5}
+              disabled={submitting}
+            />
+            {errors.message && <span class="error">{errors.message}</span>}
+          </div>
+          
+          {errors.submit && (
+            <div class="error">{errors.submit}</div>
+          )}
+          
+          <button type="submit" disabled={submitting}>
+            {submitting ? "Sending..." : "Send Message"}
+          </button>
+        </form>
+      );
+    }
+  }
+});
+```
+
+### File Upload Component
+
+```tsx
+component("file-uploader", async function* (component: HTMLElement & Component & {
+  accept?: string;
+  multiple?: boolean;
+  onUpload?: (files: File[]) => void;
+}) {
+  let files: File[] = [];
+  let uploading = false;
+  let uploadProgress = 0;
+  let error = null;
+
+  const handleFileSelect = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    files = Array.from(input.files || []);
+    component.render();
+  };
+
+  const uploadFiles = async () => {
+    if (files.length === 0) return;
+    
+    uploading = true;
+    uploadProgress = 0;
+    error = null;
+    component.render();
+    
+    try {
+      const formData = new FormData();
+      files.forEach(file => formData.append("files", file));
+      
+      const xhr = new XMLHttpRequest();
+      
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          uploadProgress = (e.loaded / e.total) * 100;
+          component.render();
+        }
+      };
+      
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          component.onUpload?.(files);
+          files = [];
+          uploading = false;
+          component.render();
+        } else {
+          throw new Error("Upload failed");
+        }
+      };
+      
+      xhr.onerror = () => {
+        throw new Error("Network error");
+      };
+      
+      xhr.open("POST", "/api/upload");
+      xhr.send(formData);
+    } catch (e) {
+      error = e.message;
+      uploading = false;
+      component.render();
+    }
+  };
+
+  const removeFile = (index: number) => {
+    files.splice(index, 1);
+    component.render();
+  };
+
+  while (true) {
+    yield (
+      <div class="file-uploader">
+        <input
+          type="file"
+          accept={component.accept}
+          multiple={component.multiple}
+          onchange={handleFileSelect}
+          disabled={uploading}
+          style="display: none"
+          id="file-input"
+        />
+        
+        <label for="file-input" class="file-input-label">
+          {files.length === 0 ? "Choose files" : `${files.length} files selected`}
+        </label>
+        
+        {files.length > 0 && (
+          <div class="file-list">
+            {files.map((file, index) => (
+              <div key={index} class="file-item">
+                <span>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
+                {!uploading && (
+                  <button onclick={() => removeFile(index)}>×</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {uploading && (
+          <div class="progress">
+            <div class="progress-bar" style={`width: ${uploadProgress}%`}></div>
+            <span>{uploadProgress.toFixed(0)}%</span>
+          </div>
+        )}
+        
+        {error && (
+          <div class="error">{error}</div>
+        )}
+        
+        {files.length > 0 && !uploading && (
+          <button onclick={uploadFiles}>Upload</button>
+        )}
+      </div>
+    );
+  }
+}, {
+  accept: "*",
+  multiple: false,
+  onUpload: () => {}
+});
+```
+
+## Component Communication
+
+### Parent-Child Communication
+
+```tsx
+// Parent component
+component("task-manager", async function* (component) {
+  const tasks = [];
+  
+  const handleTaskAdd = (e: CustomEvent) => {
+    tasks.push({
+      id: Date.now(),
+      ...e.detail
+    });
+    component.render();
+  };
+  
+  const handleTaskUpdate = (e: CustomEvent) => {
+    const task = tasks.find(t => t.id === e.detail.id);
+    if (task) {
+      Object.assign(task, e.detail.updates);
+      component.render();
+    }
+  };
+
+  // Listen for events from children
+  component.addEventListener("task-add", handleTaskAdd);
+  component.addEventListener("task-update", handleTaskUpdate);
+
+  while (true) {
+    yield (
+      <div>
+        <h2>Task Manager</h2>
+        <task-form />
+        <task-list tasks={tasks} />
+      </div>
+    );
+  }
+}, {}, {
+  onDisconnected: (component) => {
+    component.removeEventListener("task-add", component.handleTaskAdd);
+    component.removeEventListener("task-update", component.handleTaskUpdate);
+  }
+});
+
+// Child component - Task Form
+component("task-form", async function* (component) {
+  let title = "";
+  let description = "";
+
+  const handleSubmit = (e: Event) => {
+    e.preventDefault();
+    
+    if (title.trim()) {
+      // Emit event to parent
+      component.dispatchEvent(new CustomEvent("task-add", {
+        detail: { title, description },
+        bubbles: true
+      }));
+      
+      // Reset form
+      title = "";
+      description = "";
+      component.render();
+    }
+  };
+
+  while (true) {
+    yield (
+      <form onsubmit={handleSubmit}>
+        <input
+          type="text"
+          value={title}
+          oninput={(e) => {
+            title = e.target.value;
+            component.render();
+          }}
+          placeholder="Task title"
+        />
+        <textarea
+          value={description}
+          oninput={(e) => {
+            description = e.target.value;
+            component.render();
+          }}
+          placeholder="Description"
+        />
+        <button type="submit">Add Task</button>
+      </form>
+    );
+  }
+});
+
+// Child component - Task List
+component(
+  "task-list",
+  async function* (component: HTMLElement & Component & { tasks: any[] }) {
+    const toggleTask = (id: number) => {
+      component.dispatchEvent(new CustomEvent("task-update", {
+        detail: {
+          id,
+          updates: { completed: true }
+        },
+        bubbles: true
+      }));
+    };
+
+    while (true) {
+      yield (
+        <ul>
+          {component.tasks.map(task => (
+            <li key={task.id}>
+              <input
+                type="checkbox"
+                checked={task.completed}
+                onchange={() => toggleTask(task.id)}
+              />
+              <span>{task.title}</span>
+              {task.description && <p>{task.description}</p>}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+  },
+  { tasks: [] }
+);
+```
+
+### Global Event Bus
+
+```tsx
+// Event bus for cross-component communication
+class EventBus extends EventTarget {
+  emit(event: string, data?: any) {
+    this.dispatchEvent(new CustomEvent(event, { detail: data }));
+  }
+}
+
+const bus = new EventBus();
+
+// Theme Provider Component
+component("theme-provider", async function* (component) {
+  let theme = "light";
+
+  const toggleTheme = () => {
+    theme = theme === "light" ? "dark" : "light";
+    bus.emit("theme-changed", theme);
+    component.render();
+  };
+
+  while (true) {
+    yield (
+      <div class={`app-theme ${theme}`}>
+        <button onclick={toggleTheme}>
+          Switch to {theme === "light" ? "dark" : "light"} theme
+        </button>
+        <slot></slot>
+      </div>
+    );
+  }
+});
+
+// Theme Consumer Component
+component("themed-card", async function* (component) {
+  let currentTheme = "light";
+
+  const handleThemeChange = (e: CustomEvent) => {
+    currentTheme = e.detail;
+    component.render();
+  };
+
+  bus.addEventListener("theme-changed", handleThemeChange);
+
+  while (true) {
+    yield (
+      <div class={`card theme-${currentTheme}`}>
+        <h3>Themed Card</h3>
+        <p>This card responds to theme changes</p>
+        <p>Current theme: {currentTheme}</p>
+      </div>
+    );
+  }
+}, {}, {
+  onDisconnected: () => {
+    bus.removeEventListener("theme-changed", handleThemeChange);
+  }
+});
+```
+
+## Routing with webjsx-router
+
+### Basic Routing Setup
+
+```tsx
+import { component } from "magic-loop";
+import { initRouter, match, goto } from "webjsx-router";
+
+// Define page components
+component("home-page", async function* (component) {
+  yield (
+    <div>
+      <h1>Welcome to Magic Loop</h1>
+      <nav>
+        <button onclick={() => goto("/about")}>About</button>
+        <button onclick={() => goto("/products")}>Products</button>
+        <button onclick={() => goto("/contact")}>Contact</button>
+      </nav>
+    </div>
+  );
+});
+
+component("about-page", async function* (component) {
+  yield (
+    <div>
+      <h1>About Us</h1>
+      <p>We build amazing web apps with Magic Loop!</p>
+      <button onclick={() => goto("/")}>Back to Home</button>
+    </div>
+  );
+});
+
+component("not-found", async function* (component) {
+  yield (
+    <div>
+      <h1>404 - Page Not Found</h1>
+      <button onclick={() => goto("/")}>Go Home</button>
+    </div>
+  );
+});
+
+// Initialize router
+const app = document.getElementById("app");
+initRouter(app, () =>
+  match("/", () => <home-page />) ||
+  match("/about", () => <about-page />) ||
+  match("/products", () => <product-list />) ||
+  match("/contact", () => <contact-form />) ||
+  <not-found />
+);
+```
+
+### Dynamic Routes
+
+```tsx
+component(
+  "product-detail",
+  async function* (component: HTMLElement & Component & { productId: string }) {
+    let product = null;
+    let loading = true;
+
+    const loadProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${component.productId}`);
+        product = await response.json();
+      } catch (error) {
+        console.error("Failed to load product:", error);
+      } finally {
+        loading = false;
+        component.render();
+      }
+    };
+
+    loadProduct();
+
+    while (true) {
+      if (loading) {
+        yield <div>Loading product...</div>;
+      } else if (!product) {
+        yield (
+          <div>
+            <h1>Product not found</h1>
+            <button onclick={() => goto("/products")}>Back to Products</button>
+          </div>
+        );
+      } else {
+        yield (
+          <div>
+            <h1>{product.name}</h1>
+            <img src={product.image} alt={product.name} />
+            <p>{product.description}</p>
+            <p class="price">${product.price}</p>
+            <button onclick={() => goto("/products")}>Back to Products</button>
+          </div>
+        );
+      }
+    }
+  },
+  { productId: "" }
+);
+
+// Router configuration with parameters
+initRouter(app, () =>
+  match("/products/:id", (params) => <product-detail productId={params.id} />) ||
+  match("/products", () => <product-list />) ||
+  match("/", () => <home-page />) ||
+  <not-found />
+);
+```
+
+### Protected Routes
+
+```tsx
+component("protected-page", async function* (component) {
+  const isAuthenticated = localStorage.getItem("auth_token");
+  
+  if (!isAuthenticated) {
+    // Redirect to login
+    setTimeout(() => goto("/login", { redirect: window.location.pathname }), 0);
+    yield <div>Redirecting to login...</div>;
+    return;
+  }
+
+  yield (
+    <div>
+      <h1>Protected Content</h1>
+      <p>You can only see this if you're logged in!</p>
+      <button onclick={() => {
+        localStorage.removeItem("auth_token");
+        goto("/");
+      }}>
+        Logout
+      </button>
+    </div>
+  );
+});
+
+component(
+  "login-page", 
+  async function* (component: HTMLElement & Component & { redirect?: string }) {
+    let email = "";
+    let password = "";
+    let error = "";
+
+    const handleLogin = async (e: Event) => {
+      e.preventDefault();
+      
+      try {
+        // Simulate API call
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+        
+        if (response.ok) {
+          const { token } = await response.json();
+          localStorage.setItem("auth_token", token);
+          
+          // Redirect to original page or home
+          const redirectTo = component.redirect || "/";
+          goto(redirectTo);
+        } else {
+          error = "Invalid credentials";
+          component.render();
+        }
+      } catch (e) {
+        error = "Login failed";
+        component.render();
+      }
+    };
+
+    while (true) {
+      yield (
+        <form onsubmit={handleLogin}>
+          <h1>Login</h1>
+          
+          {error && <div class="error">{error}</div>}
+          
+          <input
+            type="email"
+            value={email}
+            oninput={(e) => {
+              email = e.target.value;
+              component.render();
+            }}
+            placeholder="Email"
+            required
+          />
+          
+          <input
+            type="password"
+            value={password}
+            oninput={(e) => {
+              password = e.target.value;
+              component.render();
+            }}
+            placeholder="Password"
+            required
+          />
+          
+          <button type="submit">Login</button>
+        </form>
+      );
+    }
+  },
+  { redirect: "" }
+);
+
+// Router with query params for redirect
+initRouter(app, () =>
+  match("/login", (params, query) => <login-page redirect={query.redirect} />) ||
+  match("/dashboard", () => <protected-page />) ||
+  match("/", () => <home-page />) ||
+  <not-found />
+);
+```
+
+## Complete Application Example
+
+### Blog Application with Magic Loop
+
+```tsx
+import { component } from "magic-loop";
+import { initRouter, match, goto } from "webjsx-router";
+
+// Types
+interface Post {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  author: string;
+  date: Date;
+  tags: string[];
+}
+
+interface Comment {
+  id: number;
+  postId: number;
+  author: string;
+  content: string;
+  date: Date;
+}
+
+// API Service
+class BlogAPI {
+  static async getPosts(): Promise<Post[]> {
+    const response = await fetch("/api/posts");
+    return response.json();
+  }
+  
+  static async getPost(slug: string): Promise<Post> {
+    const response = await fetch(`/api/posts/${slug}`);
+    return response.json();
+  }
+  
+  static async getComments(postId: number): Promise<Comment[]> {
+    const response = await fetch(`/api/posts/${postId}/comments`);
+    return response.json();
+  }
+  
+  static async addComment(postId: number, comment: Partial<Comment>): Promise<Comment> {
+    const response = await fetch(`/api/posts/${postId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(comment)
+    });
+    return response.json();
+  }
+}
+
+// Header Component
+component("blog-header", async function* (component) {
+  while (true) {
+    yield (
+      <header class="blog-header">
+        <h1 onclick={() => goto("/")}>My Awesome Blog</h1>
+        <nav>
+          <a href="#" onclick={(e) => { e.preventDefault(); goto("/"); }}>Home</a>
+          <a href="#" onclick={(e) => { e.preventDefault(); goto("/about"); }}>About</a>
+          <a href="#" onclick={(e) => { e.preventDefault(); goto("/archive"); }}>Archive</a>
+        </nav>
+      </header>
+    );
+  }
+});
+
+// Post List Component
+component("post-list", async function* (component) {
+  let posts: Post[] = [];
+  let loading = true;
+  let error = null;
+  let filter = "";
+
+  const loadPosts = async () => {
+    loading = true;
+    component.render();
+    
+    try {
+      posts = await BlogAPI.getPosts();
+      loading = false;
+    } catch (e) {
+      error = "Failed to load posts";
+      loading = false;
+    }
+    component.render();
+  };
+
+  loadPosts();
+
+  while (true) {
+    const filteredPosts = posts.filter(post => 
+      filter === "" || 
+      post.title.toLowerCase().includes(filter.toLowerCase()) ||
+      post.tags.some(tag => tag.toLowerCase().includes(filter.toLowerCase()))
+    );
+
+    yield (
+      <div class="post-list">
+        <div class="search-bar">
+          <input
+            type="search"
+            placeholder="Search posts..."
+            value={filter}
+            oninput={(e) => {
+              filter = e.target.value;
+              component.render();
+            }}
+          />
+        </div>
+
+        {loading ? (
+          <div class="loading">Loading posts...</div>
+        ) : error ? (
+          <div class="error">
+            {error}
+            <button onclick={() => loadPosts()}>Retry</button>
+          </div>
+        ) : filteredPosts.length === 0 ? (
+          <div class="no-posts">No posts found</div>
+        ) : (
+          <div class="posts">
+            {filteredPosts.map(post => (
+              <article key={post.id} class="post-preview">
+                <h2>
+                  <a href="#" onclick={(e) => {
+                    e.preventDefault();
+                    goto(`/posts/${post.slug}`);
+                  }}>
+                    {post.title}
+                  </a>
+                </h2>
+                <div class="post-meta">
+                  By {post.author} on {new Date(post.date).toLocaleDateString()}
+                </div>
+                <p>{post.excerpt}</p>
+                <div class="post-tags">
+                  {post.tags.map(tag => (
+                    <span 
+                      key={tag} 
+                      class="tag"
+                      onclick={() => {
+                        filter = tag;
+                        component.render();
+                      }}
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+                <a 
+                  href="#" 
+                  class="read-more"
+                  onclick={(e) => {
+                    e.preventDefault();
+                    goto(`/posts/${post.slug}`);
+                  }}
+                >
+                  Read more →
+                </a>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+});
+
+// Post Detail Component
+component(
+  "post-detail",
+  async function* (component: HTMLElement & Component & { slug: string }) {
+    let post: Post | null = null;
+    let loading = true;
+    let error = null;
+
+    const loadPost = async () => {
+      loading = true;
+      component.render();
+      
+      try {
+        post = await BlogAPI.getPost(component.slug);
+        loading = false;
+      } catch (e) {
+        error = "Failed to load post";
+        loading = false;
+      }
+      component.render();
+    };
+
+    loadPost();
+
+    while (true) {
+      if (loading) {
+        yield <div class="loading">Loading post...</div>;
+      } else if (error || !post) {
+        yield (
+          <div class="error">
+            <h1>Post not found</h1>
+            <button onclick={() => goto("/")}>Back to Home</button>
+          </div>
+        );
+      } else {
+        yield (
+          <article class="post-detail">
+            <button class="back-button" onclick={() => goto("/")}>
+              ← Back to Posts
+            </button>
+            
+            <h1>{post.title}</h1>
+            
+            <div class="post-meta">
+              By {post.author} on {new Date(post.date).toLocaleDateString()}
+            </div>
+            
+            <div class="post-tags">
+              {post.tags.map(tag => (
+                <span key={tag} class="tag">#{tag}</span>
+              ))}
+            </div>
+            
+            <div 
+              class="post-content" 
+              innerHTML={post.content}
+            />
+            
+            <comment-section postId={post.id} />
+          </article>
+        );
+      }
+    }
+  },
+  { slug: "" }
+);
+
+// Comment Section Component
+component(
+  "comment-section",
+  async function* (component: HTMLElement & Component & { postId: number }) {
+    let comments: Comment[] = [];
+    let loading = true;
+    let newComment = { author: "", content: "" };
+    let submitting = false;
+
+    const loadComments = async () => {
+      try {
+        comments = await BlogAPI.getComments(component.postId);
+        loading = false;
+        component.render();
+      } catch (e) {
+        loading = false;
+        component.render();
+      }
+    };
+
+    const submitComment = async (e: Event) => {
+      e.preventDefault();
+      
+      if (!newComment.author.trim() || !newComment.content.trim()) {
+        return;
+      }
+      
+      submitting = true;
+      component.render();
+      
+      try {
+        const comment = await BlogAPI.addComment(component.postId, {
+          author: newComment.author,
+          content: newComment.content
+        });
+        
+        comments.unshift(comment);
+        newComment = { author: "", content: "" };
+      } catch (e) {
+        console.error("Failed to add comment:", e);
+      } finally {
+        submitting = false;
+        component.render();
+      }
+    };
+
+    loadComments();
+
+    while (true) {
+      yield (
+        <section class="comments">
+          <h3>Comments ({comments.length})</h3>
+          
+          <form class="comment-form" onsubmit={submitComment}>
+            <h4>Add a Comment</h4>
+            <input
+              type="text"
+              placeholder="Your name"
+              value={newComment.author}
+              oninput={(e) => {
+                newComment.author = e.target.value;
+                component.render();
+              }}
+              disabled={submitting}
+              required
+            />
+            <textarea
+              placeholder="Your comment"
+              value={newComment.content}
+              oninput={(e) => {
+                newComment.content = e.target.value;
+                component.render();
+              }}
+              disabled={submitting}
+              required
+              rows={4}
+            />
+            <button type="submit" disabled={submitting}>
+              {submitting ? "Posting..." : "Post Comment"}
+            </button>
+          </form>
+          
+          {loading ? (
+            <div>Loading comments...</div>
+          ) : comments.length === 0 ? (
+            <p>No comments yet. Be the first to comment!</p>
+          ) : (
+            <div class="comment-list">
+              {comments.map(comment => (
+                <div key={comment.id} class="comment">
+                  <div class="comment-header">
+                    <strong>{comment.author}</strong>
+                    <time>{new Date(comment.date).toLocaleString()}</time>
+                  </div>
+                  <p>{comment.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      );
+    }
+  },
+  { postId: 0 }
+);
+
+// About Page
+component("about-page", async function* (component) {
+  yield (
+    <div class="about-page">
+      <h1>About This Blog</h1>
+      <p>
+        This blog is built with Magic Loop, an experimental Web Component 
+        framework that uses async generators for state management.
+      </p>
+      <p>
+        Magic Loop provides a unique approach to building reactive UIs with 
+        minimal boilerplate, combining the power of Web Components with the 
+        simplicity of generator functions.
+      </p>
+      <h2>Features</h2>
+      <ul>
+        <li>Async generator-based components</li>
+        <li>Native Web Components</li>
+        <li>Built-in routing with webjsx-router</li>
+        <li>Efficient DOM updates with WebJSX</li>
+        <li>TypeScript support</li>
+      </ul>
+      <button onclick={() => goto("/")}>Back to Home</button>
+    </div>
+  );
+});
+
+// Archive Page
+component("archive-page", async function* (component) {
+  let posts: Post[] = [];
+  let loading = true;
+  let groupedPosts: Map<string, Post[]> = new Map();
+
+  const loadPosts = async () => {
+    try {
+      posts = await BlogAPI.getPosts();
+      
+      // Group posts by year-month
+      posts.forEach(post => {
+        const date = new Date(post.date);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!groupedPosts.has(key)) {
+          groupedPosts.set(key, []);
+        }
+        groupedPosts.get(key)!.push(post);
+      });
+      
+      loading = false;
+      component.render();
+    } catch (e) {
+      loading = false;
+      component.render();
+    }
+  };
+
+  loadPosts();
+
+  while (true) {
+    yield (
+      <div class="archive-page">
+        <h1>Archive</h1>
+        
+        {loading ? (
+          <div>Loading archive...</div>
+        ) : (
+          <div class="archive-list">
+            {Array.from(groupedPosts.entries()).map(([month, monthPosts]) => {
+              const [year, monthNum] = month.split('-');
+              const monthName = new Date(Number(year), Number(monthNum) - 1).toLocaleDateString('default', { month: 'long', year: 'numeric' });
+              
+              return (
+                <div key={month} class="archive-month">
+                  <h2>{monthName}</h2>
+                  <ul>
+                    {monthPosts.map(post => (
+                      <li key={post.id}>
+                        <a href="#" onclick={(e) => {
+                          e.preventDefault();
+                          goto(`/posts/${post.slug}`);
+                        }}>
+                          {post.title}
+                        </a>
+                        <span class="post-date">
+                          {new Date(post.date).toLocaleDateString()}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        
+        <button onclick={() => goto("/")}>Back to Home</button>
+      </div>
+    );
+  }
+});
+
+// App Shell with Layout
+component("app-shell", async function* (component) {
+  yield (
+    <div class="app">
+      <blog-header />
+      <main id="content"></main>
+      <footer>
+        <p>© 2024 My Awesome Blog. Built with Magic Loop.</p>
+      </footer>
+    </div>
+  );
+});
+
+// Initialize the app
+document.addEventListener("DOMContentLoaded", () => {
+  // Mount app shell
+  const appShell = document.createElement("app-shell");
+  document.body.appendChild(appShell);
+  
+  // Initialize router
+  const content = document.getElementById("content");
+  initRouter(content, () =>
+    match("/", () => <post-list />) ||
+    match("/posts/:slug", (params) => <post-detail slug={params.slug} />) ||
+    match("/about", () => <about-page />) ||
+    match("/archive", () => <archive-page />) ||
+    <not-found />
+  );
+});
+```
+
+## Advanced Patterns
+
+### Composable Components with Mixins
+
+```tsx
+// Mixin for adding loading state
+function withLoading<T extends { new(...args: any[]): HTMLElement }>(Base: T) {
+  return class extends Base {
+    loading = false;
+    error: string | null = null;
+
+    setLoading(loading: boolean) {
+      this.loading = loading;
+      if ('render' in this && typeof this.render === 'function') {
+        (this as any).render();
+      }
+    }
+
+    setError(error: string | null) {
+      this.error = error;
+      if ('render' in this && typeof this.render === 'function') {
+        (this as any).render();
+      }
+    }
+  };
+}
+
+// Use mixin in component
+const LoadableHTMLElement = withLoading(HTMLElement);
+
+component(
+  "data-loader",
+  async function* (component: InstanceType<typeof LoadableHTMLElement> & Component) {
+    const loadData = async () => {
+      component.setLoading(true);
+      component.setError(null);
+      
+      try {
+        const response = await fetch("/api/data");
+        const data = await response.json();
+        component.setLoading(false);
+        // Process data...
+      } catch (e) {
+        component.setError("Failed to load data");
+        component.setLoading(false);
+      }
+    };
+
+    loadData();
+
+    while (true) {
+      if (component.loading) {
+        yield <div>Loading...</div>;
+      } else if (component.error) {
+        yield <div class="error">{component.error}</div>;
+      } else {
+        yield <div>Data loaded successfully!</div>;
+      }
+    }
+  },
+  {},
+  { extends: LoadableHTMLElement }
+);
+```
+
+### Debounced Updates
+
+```tsx
+component("search-input", async function* (component) {
+  let query = "";
+  let results = [];
+  let searching = false;
+  let debounceTimer: number | null = null;
+
+  const search = async (searchQuery: string) => {
+    if (!searchQuery.trim()) {
+      results = [];
+      component.render();
+      return;
+    }
+
+    searching = true;
+    component.render();
+
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+      results = await response.json();
+    } catch (e) {
+      results = [];
+    } finally {
+      searching = false;
+      component.render();
+    }
+  };
+
+  const handleInput = (value: string) => {
+    query = value;
+    component.render();
+
+    // Clear existing timer
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    // Set new timer
+    debounceTimer = setTimeout(() => {
+      search(value);
+    }, 300);
+  };
+
+  while (true) {
+    yield (
+      <div class="search-container">
+        <input
+          type="search"
+          value={query}
+          oninput={(e) => handleInput(e.target.value)}
+          placeholder="Search..."
+        />
+        
+        {searching && <div class="searching">Searching...</div>}
+        
+        {!searching && results.length > 0 && (
+          <ul class="search-results">
+            {results.map((result: any) => (
+              <li key={result.id}>{result.title}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+}, {}, {
+  onDisconnected: (component) => {
+    // Clean up timer on unmount
+    if (component.debounceTimer) {
+      clearTimeout(component.debounceTimer);
+    }
+  }
+});
+```
+
+### Infinite Scroll
+
+```tsx
+component("infinite-list", async function* (component) {
+  const items: any[] = [];
+  let page = 1;
+  let loading = false;
+  let hasMore = true;
+  let observerTarget: Element | null = null;
+
+  const loadMore = async () => {
+    if (loading || !hasMore) return;
+    
+    loading = true;
+    component.render();
+
+    try {
+      const response = await fetch(`/api/items?page=${page}`);
+      const newItems = await response.json();
+      
+      if (newItems.length === 0) {
+        hasMore = false;
+      } else {
+        items.push(...newItems);
+        page++;
+      }
+    } catch (e) {
+      console.error("Failed to load items:", e);
+    } finally {
+      loading = false;
+      component.render();
+    }
+  };
+
+  // Set up intersection observer
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting) {
+        loadMore();
+      }
+    },
+    { threshold: 0.1 }
+  );
+
+  // Initial load
+  loadMore();
+
+  while (true) {
+    yield (
+      <div class="infinite-list">
+        <ul>
+          {items.map((item, index) => (
+            <li key={item.id || index}>{item.name}</li>
+          ))}
+        </ul>
+        
+        {hasMore && (
+          <div 
+            class="load-more-trigger"
+            ref={(el) => {
+              if (observerTarget) {
+                observer.unobserve(observerTarget);
+              }
+              if (el) {
+                observer.observe(el);
+                observerTarget = el;
+              }
+            }}
+          >
+            {loading ? "Loading more..." : "Scroll for more"}
+          </div>
+        )}
+        
+        {!hasMore && items.length > 0 && (
+          <div class="end-message">No more items to load</div>
+        )}
+      </div>
+    );
+  }
+}, {}, {
+  onDisconnected: () => {
+    observer.disconnect();
+  }
+});
+```
+
+### Animation with Generators
+
+```tsx
+component("animated-counter", async function* (component: HTMLElement & Component & {
+  from: number;
+  to: number;
+  duration: number;
+}) {
+  let currentValue = component.from;
+  let animationFrame: number | null = null;
+  
+  const animate = () => {
+    const startTime = performance.now();
+    const startValue = currentValue;
+    const endValue = component.to;
+    const animationDuration = component.duration;
+    
+    const updateValue = (timestamp: number) => {
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / animationDuration, 1);
+      
+      // Easing function (ease-out-cubic)
+      const eased = 1 - Math.pow(1 - progress, 3);
+      
+      currentValue = Math.round(startValue + (endValue - startValue) * eased);
+      component.render();
+      
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(updateValue);
+      }
+    };
+    
+    animationFrame = requestAnimationFrame(updateValue);
+  };
+  
+  // Start animation on mount
+  animate();
+  
+  while (true) {
+    yield (
+      <div class="animated-counter">
+        <span class="counter-value">{currentValue}</span>
+      </div>
+    );
+  }
+}, 
+{
+  from: 0,
+  to: 100,
+  duration: 1000
+},
+{
+  onDisconnected: (component) => {
+    if (component.animationFrame) {
+      cancelAnimationFrame(component.animationFrame);
+    }
+  }
+});
+```
+
+## Testing Magic Loop Components
+
+### Unit Testing Example
+
+```tsx
+// test/todo-list.test.ts
+import { component } from "magic-loop";
+import { JSDOM } from "jsdom";
+
+describe("TodoList Component", () => {
+  let dom: JSDOM;
+  let document: Document;
+  
+  beforeEach(() => {
+    dom = new JSDOM(`<!DOCTYPE html><body></body>`);
+    document = dom.window.document;
+    global.document = document;
+    global.window = dom.window as any;
+    global.customElements = dom.window.customElements;
+  });
+  
+  afterEach(() => {
+    dom.window.close();
+  });
+  
+  it("should add a new todo", async () => {
+    // Define component
+    component("test-todo", async function* (component) {
+      const todos: string[] = [];
+      
+      while (true) {
+        yield (
+          <div>
+            <ul>
+              {todos.map((todo, i) => <li key={i}>{todo}</li>)}
+            </ul>
+            <button onclick={() => {
+              todos.push("New Todo");
+              component.render();
+            }}>
+              Add Todo
+            </button>
+          </div>
+        );
+      }
+    });
+    
+    // Create and mount component
+    const todoEl = document.createElement("test-todo");
+    document.body.appendChild(todoEl);
+    
+    // Wait for initial render
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
+    // Check initial state
+    const items = todoEl.querySelectorAll("li");
+    expect(items.length).toBe(0);
+    
+    // Click add button
+    const button = todoEl.querySelector("button");
+    button?.click();
+    
+    // Wait for re-render
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
+    // Check updated state
+    const updatedItems = todoEl.querySelectorAll("li");
+    expect(updatedItems.length).toBe(1);
+    expect(updatedItems[0].textContent).toBe("New Todo");
+  });
+});
+```
+
+## HTML Setup
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magic Loop App</title>
+  
+  <style>
+    /* Global styles */
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+    }
+    
+    /* Component styles */
+    .loading {
+      padding: 2rem;
+      text-align: center;
+      color: #666;
+    }
+    
+    .error {
+      color: #d32f2f;
+      padding: 1rem;
+      background: #ffebee;
+      border-radius: 4px;
+    }
+    
+    button {
+      background: #1976d2;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    button:hover {
+      background: #1565c0;
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+  </style>
+  
+  <!-- Import map for ES modules -->
+  <script type="importmap">
+    {
+      "imports": {
+        "magic-loop": "./node_modules/magic-loop/dist/index.js",
+        "webjsx": "./node_modules/webjsx/dist/index.js",
+        "webjsx/jsx-runtime": "./node_modules/webjsx/dist/jsx-runtime.js",
+        "webjsx-router": "./node_modules/webjsx-router/dist/index.js"
+      }
+    }
+  </script>
+  
+  <!-- Your compiled app -->
+  <script type="module" src="./dist/app.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+</body>
+</html>
+```
+
+## Performance Best Practices
+
+1. **Minimize Renders**: Only call `component.render()` when state actually changes
+2. **Use Keys**: Always provide keys when rendering lists for efficient updates
+3. **Lazy Loading**: Load components on demand using dynamic imports
+4. **Cleanup**: Always clean up timers, listeners, and subscriptions in `onDisconnected`
+5. **Batch Updates**: Group multiple state changes before calling render
+6. **Shadow DOM**: Use Shadow DOM for style isolation and better performance
+7. **Debouncing**: Debounce expensive operations like search or API calls
+
+## Debugging Tips
+
+1. **DevTools**: Use browser DevTools to inspect custom elements and their properties
+2. **Console Logging**: Add logs in generator function to track render cycles
+3. **Performance Tab**: Profile your app to identify performance bottlenecks
+4. **Memory Leaks**: Check for retained objects after components are removed
+5. **Network Tab**: Monitor API calls and ensure proper error handling
+
+## Common Patterns Summary
+
+- **Async Generators**: Use `while (true) { yield ... }` for continuous rendering
+- **State Updates**: Call `component.render()` after state changes
+- **Props**: Declare with defaults, serializable become attributes
+- **Events**: Use CustomEvents for parent-child communication
+- **Lifecycle**: Use `onConnected` and `onDisconnected` for setup/cleanup
+- **Shadow DOM**: Enable with `shadow: "open"` option
+- **Routing**: Use webjsx-router for navigation
+
+## Resources
+
+- GitHub: https://github.com/webjsx/magic-loop
+- WebJSX: https://github.com/webjsx/webjsx
+- Router: https://github.com/webjsx/webjsx-router
+- Examples: https://stackblitz.com/edit/magic-loop-hn
+- Author: @jeswin
+
+Magic Loop - Build reactive Web Components with async generators!
